@@ -58,6 +58,33 @@ a {
   gap: 1.25rem;
 }
 
+.rodape {
+  margin-top: auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.rodape__icone {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.rodape a {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.rodape a:hover {
+  text-decoration: underline;
+}
+
 .pagina h1 {
   font-size: 1.5rem;
 }
