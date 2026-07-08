@@ -82,6 +82,14 @@ export interface Divergencia {
   campo: CampoDivergencia;
   valorXml: string;
   valorLivro: string;
+  // Valores brutos em centavos para campos monetários (null para cfop/data). Usados
+  // para detectar "valor não escriturado no livro" (brutoLivro === 0, brutoXml !== 0).
+  brutoXml: number | null;
+  brutoLivro: number | null;
+}
+
+export function ehCampoMonetario(campo: CampoDivergencia): boolean {
+  return campo === "valorContabil" || campo === "icms" || campo === "ipi" || campo === "baseCalculo";
 }
 
 export interface NotaCasada<T extends NFeRegistro | CTeRegistro> {

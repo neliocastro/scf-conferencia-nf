@@ -1,117 +1,77 @@
-import type { CTeRegistro, Divergencia, LivroAgregado, NFeRegistro } from "./tipos";
+import type { CampoDivergencia, CTeRegistro, Divergencia, LivroAgregado, NFeRegistro, TipoDocumento } from "./tipos";
 import { formatarValorBR, formatarDataBR } from "./numerosBr";
 
-function compararCfop(cfopsXml: string[], cfopsLivro: string[]): { valorXml: string; valorLivro: string } | null {
+interface Base {
+  tipo: TipoDocumento;
+  chave: string;
+  notaFiscal: string;
+}
+
+// Divergência monetária: só é registrada se os valores diferirem. Guarda os brutos
+// (centavos) para o gerador de e-mail distinguir "não escriturado" (livro = 0).
+function divMonetaria(
+  base: Base,
+  campo: CampoDivergencia,
+  brutoXml: number,
+  brutoLivro: number,
+): Divergencia | null {
+  if (brutoXml === brutoLivro) return null;
+  return {
+    ...base,
+    campo,
+    valorXml: formatarValorBR(brutoXml),
+    valorLivro: formatarValorBR(brutoLivro),
+    brutoXml,
+    brutoLivro,
+  };
+}
+
+function divData(base: Base, xml: string | null, livro: string | null): Divergencia | null {
+  if (xml === livro) return null;
+  return {
+    ...base,
+    campo: "data",
+    valorXml: formatarDataBR(xml),
+    valorLivro: formatarDataBR(livro),
+    brutoXml: null,
+    brutoLivro: null,
+  };
+}
+
+function divCfop(base: Base, cfopsXml: string[], cfopsLivro: string[]): Divergencia | null {
   const xmlUnico = cfopsXml.length === 1 ? cfopsXml[0] : null;
   const livroUnico = cfopsLivro.length === 1 ? cfopsLivro[0] : null;
-
   if (xmlUnico != null && livroUnico != null && xmlUnico === livroUnico) return null;
 
   return {
+    ...base,
+    campo: "cfop",
     valorXml: cfopsXml.length > 0 ? cfopsXml.join("/") : "(vazio)",
     valorLivro: cfopsLivro.length > 0 ? cfopsLivro.join("/") : "(vazio)",
+    brutoXml: null,
+    brutoLivro: null,
   };
 }
 
 export function compararNFe(registro: NFeRegistro, agregado: LivroAgregado): Divergencia[] {
-  const divergencias: Divergencia[] = [];
-  const base = { tipo: "NFe" as const, chave: registro.chave, notaFiscal: registro.numero };
-
-  if (registro.dataEmissao !== agregado.emissao) {
-    divergencias.push({
-      ...base,
-      campo: "data",
-      valorXml: formatarDataBR(registro.dataEmissao),
-      valorLivro: formatarDataBR(agregado.emissao),
-    });
-  }
-
-  if (registro.vNF !== agregado.vlrContabil) {
-    divergencias.push({
-      ...base,
-      campo: "valorContabil",
-      valorXml: formatarValorBR(registro.vNF),
-      valorLivro: formatarValorBR(agregado.vlrContabil),
-    });
-  }
-
-  const cfopDiff = compararCfop(registro.cfops, agregado.cfops);
-  if (cfopDiff) divergencias.push({ ...base, campo: "cfop", ...cfopDiff });
-
-  if (registro.vICMS !== agregado.icmsTribut) {
-    divergencias.push({
-      ...base,
-      campo: "icms",
-      valorXml: formatarValorBR(registro.vICMS),
-      valorLivro: formatarValorBR(agregado.icmsTribut),
-    });
-  }
-
-  if (registro.vIPI !== agregado.ipiTribut) {
-    divergencias.push({
-      ...base,
-      campo: "ipi",
-      valorXml: formatarValorBR(registro.vIPI),
-      valorLivro: formatarValorBR(agregado.ipiTribut),
-    });
-  }
-
-  if (registro.vBC !== agregado.baseIcms) {
-    divergencias.push({
-      ...base,
-      campo: "baseCalculo",
-      valorXml: formatarValorBR(registro.vBC),
-      valorLivro: formatarValorBR(agregado.baseIcms),
-    });
-  }
-
-  return divergencias;
+  const base: Base = { tipo: "NFe", chave: registro.chave, notaFiscal: registro.numero };
+  return [
+    divData(base, registro.dataEmissao, agregado.emissao),
+    divMonetaria(base, "valorContabil", registro.vNF, agregado.vlrContabil),
+    divCfop(base, registro.cfops, agregado.cfops),
+    divMonetaria(base, "icms", registro.vICMS, agregado.icmsTribut),
+    divMonetaria(base, "ipi", registro.vIPI, agregado.ipiTribut),
+    divMonetaria(base, "baseCalculo", registro.vBC, agregado.baseIcms),
+  ].filter((d): d is Divergencia => d !== null);
 }
 
 export function compararCTe(registro: CTeRegistro, agregado: LivroAgregado): Divergencia[] {
-  const divergencias: Divergencia[] = [];
-  const base = { tipo: "CTe" as const, chave: registro.chave, notaFiscal: registro.numero };
-
-  if (registro.dataEmissao !== agregado.emissao) {
-    divergencias.push({
-      ...base,
-      campo: "data",
-      valorXml: formatarDataBR(registro.dataEmissao),
-      valorLivro: formatarDataBR(agregado.emissao),
-    });
-  }
-
-  if (registro.vTPrest !== agregado.vlrContabil) {
-    divergencias.push({
-      ...base,
-      campo: "valorContabil",
-      valorXml: formatarValorBR(registro.vTPrest),
-      valorLivro: formatarValorBR(agregado.vlrContabil),
-    });
-  }
-
-  const cfopDiff = compararCfop(registro.cfop ? [registro.cfop] : [], agregado.cfops);
-  if (cfopDiff) divergencias.push({ ...base, campo: "cfop", ...cfopDiff });
-
-  const vIcmsXml = registro.vICMS ?? 0;
-  if (vIcmsXml !== agregado.icmsTribut) {
-    divergencias.push({
-      ...base,
-      campo: "icms",
-      valorXml: formatarValorBR(vIcmsXml),
-      valorLivro: formatarValorBR(agregado.icmsTribut),
-    });
-  }
-
-  const vBcXml = registro.vBC ?? 0;
-  if (vBcXml !== agregado.baseIcms) {
-    divergencias.push({
-      ...base,
-      campo: "baseCalculo",
-      valorXml: formatarValorBR(vBcXml),
-      valorLivro: formatarValorBR(agregado.baseIcms),
-    });
-  }
-
-  return divergencias;
+  const base: Base = { tipo: "CTe", chave: registro.chave, notaFiscal: registro.numero };
+  return [
+    divData(base, registro.dataEmissao, agregado.emissao),
+    divMonetaria(base, "valorContabil", registro.vTPrest, agregado.vlrContabil),
+    divCfop(base, registro.cfop ? [registro.cfop] : [], agregado.cfops),
+    divMonetaria(base, "icms", registro.vICMS ?? 0, agregado.icmsTribut),
+    divMonetaria(base, "baseCalculo", registro.vBC ?? 0, agregado.baseIcms),
+  ].filter((d): d is Divergencia => d !== null);
 }
