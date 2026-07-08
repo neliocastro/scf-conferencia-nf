@@ -2,6 +2,7 @@ import type {
   CampoDivergencia,
   CTeRegistro,
   Divergencia,
+  LivroAgregado,
   NFeRegistro,
   ResultadoReconciliacao,
 } from "./tipos";
@@ -46,6 +47,14 @@ function ordenarNumeros(numeros: string[]): string[] {
     if (Number.isNaN(na) || Number.isNaN(nb)) return a.localeCompare(b);
     return na - nb;
   });
+}
+
+// Linha da observação para um tipo de documento (só é gerada se houver notas).
+function obsLinhaTipo(rotulo: string, agregados: LivroAgregado[]): string | null {
+  if (agregados.length === 0) return null;
+  const numeros = ordenarNumeros(agregados.map((a) => a.notaFiscal || "(sem número)"));
+  const plural = agregados.length !== 1;
+  return `- ${rotulo} – (${agregados.length.toString().padStart(2, "0")}) nota${plural ? "s" : ""}: ${numeros.join(", ")}`;
 }
 
 interface GruposDivergencia {
@@ -201,13 +210,11 @@ export function gerarTextoEmail(
   if (totalLivroSemXml === 0) {
     linhas.push("Obs.: Não há notas no livro sem o XML correspondente.");
   } else {
-    const numerosLivroSemXml = ordenarNumeros(
-      [...nfe.livroSemXml, ...cte.livroSemXml].map((a) => a.notaFiscal || "(sem número)"),
-    );
-    const plural = totalLivroSemXml !== 1;
-    linhas.push(
-      `Obs.: Temos (${totalLivroSemXml.toString().padStart(2, "0")}) nota${plural ? "s" : ""} no livro sem o XML correspondente: ${numerosLivroSemXml.join(", ")}.`,
-    );
+    linhas.push("Obs.: Temos notas no livro sem o XML correspondente:");
+    const linhaEntrada = obsLinhaTipo("Entrada (NFe)", nfe.livroSemXml);
+    const linhaCTe = obsLinhaTipo("CTe", cte.livroSemXml);
+    if (linhaEntrada) linhas.push(linhaEntrada);
+    if (linhaCTe) linhas.push(linhaCTe);
   }
   linhas.push("");
   linhas.push("Ficamos à disposição para esclarecer qualquer dúvida.");
