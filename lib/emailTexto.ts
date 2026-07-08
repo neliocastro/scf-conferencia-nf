@@ -198,10 +198,17 @@ export function gerarTextoEmail(
   linhas.push(...renderSecao("CTe", totalCTe, cte.semLivro.map((r) => r.numero), cte.divergencias));
   linhas.push("");
 
-  const plural = totalLivroSemXml !== 1;
-  linhas.push(
-    `Obs.: Temos (${totalLivroSemXml.toString().padStart(2, "0")}) nota${plural ? "s" : ""} no livro sem o XML correspondente.`,
-  );
+  if (totalLivroSemXml === 0) {
+    linhas.push("Obs.: Não há notas no livro sem o XML correspondente.");
+  } else {
+    const numerosLivroSemXml = ordenarNumeros(
+      [...nfe.livroSemXml, ...cte.livroSemXml].map((a) => a.notaFiscal || "(sem número)"),
+    );
+    const plural = totalLivroSemXml !== 1;
+    linhas.push(
+      `Obs.: Temos (${totalLivroSemXml.toString().padStart(2, "0")}) nota${plural ? "s" : ""} no livro sem o XML correspondente: ${numerosLivroSemXml.join(", ")}.`,
+    );
+  }
   linhas.push("");
   linhas.push("Ficamos à disposição para esclarecer qualquer dúvida.");
   linhas.push("");
